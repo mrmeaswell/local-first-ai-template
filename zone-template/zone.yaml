@@ -1,0 +1,11 @@
+# Edit this file (plus schema/) to create a new zone.
+name: bay-log
+title: Bay Log
+record: work_order              # primary record type
+stages: [Intake, Diagnosis, Approval, Repair, QC, Pickup]
+roles: [student, lead, admin]
+gated_transitions:              # stage moves that require lead/admin
+  Approval: lead
+  Pickup: lead
+conflict_policy: last-writer-wins-with-audit
+profile: A                      # A single node | B multi-device | C remote

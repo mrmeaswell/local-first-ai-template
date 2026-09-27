@@ -1,0 +1,3 @@
+{"id":"g1","call":["GET","/records/1"],"expect":{"stage":"Diagnosis"}}
+{"id":"g2","call":["GET","/kb?q=brake"],"expect_contains_id":"KB-001"}
+{"id":"g3","call":["GET","/records?q=Civic"],"expect_min_len":1}

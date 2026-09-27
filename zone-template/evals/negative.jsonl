@@ -1,0 +1,2 @@
+{"id":"n1","desc":"student cannot move a record into a lead-gated stage","call":["POST","/records/2/advance"],"role":"student","expect_status":403}
+{"id":"n2","desc":"unknown role rejected","call":["POST","/records/1/notes"],"role":"hacker","body":{"text":"x"},"expect_status":403}

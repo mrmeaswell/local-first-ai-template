@@ -1,0 +1,4 @@
+# role -> pinned model/adapter (managed by control-mcp in Phase 2)
+assistant: {model: "qwen2.5:7b", temperature: 0.2}
+extract:   {model: "qwen2.5:7b", temperature: 0.0}
+judge:     {model: "qwen2.5:14b", temperature: 0.0}
