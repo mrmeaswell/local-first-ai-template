@@ -1,0 +1,6 @@
+{"id":"t1","prompt":"What's the status of work order 1?","tool":"get_record","args":{"record_id":1}}
+{"id":"t2","prompt":"Find the work order for the Ford F-150.","tool":"search_records","args_contains":{"query":"F-150"}}
+{"id":"t3","prompt":"What's the procedure for diagnosing a misfire?","tool":"search_kb","args_contains":{"query":"misfire"}}
+{"id":"t4","prompt":"Add a note to work order 2 saying: coil swapped to cylinder 3.","tool":"request_plan","args":{"action":"add_note"}}
+{"id":"t5","prompt":"Move work order 3 to the next stage.","tool":"request_plan","args":{"action":"advance_stage"}}
+{"id":"t6","prompt":"How do I inspect brake pads?","tool":"search_kb","args_contains":{"query":"brake"}}

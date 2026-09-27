@@ -3,10 +3,11 @@ name: bay-log
 title: Bay Log
 record: work_order              # primary record type
 stages: [Intake, Diagnosis, Approval, Repair, QC, Pickup]
-roles: [student, lead, admin]
-gated_transitions:              # stage moves that require lead/admin
+roles: [service, student, lead, admin]   # lowest to highest. 'service' = non-human client with a human owner
+gated_transitions:              # stage moves that require at least this role
   Approval: lead
   QC: lead                      # students cannot sign off their own work
   Pickup: lead
+plan_ttl_seconds: 300           # confirm tokens expire after 5 minutes
 conflict_policy: last-writer-wins-with-audit
 profile: A                      # A single node | B multi-device | C remote

@@ -1,5 +1,4 @@
--- Demo tokens only. Change them before any real use.
-INSERT INTO users(name,role,token) VALUES ('Student A','student','student-demo-token'),('Lead Instructor','lead','lead-demo-token');
+-- Users are NOT seeded. Create them with: python api/app.py --add-user NAME ROLE
 INSERT INTO records(title,stage,owner,notes) VALUES
  ('2014 Honda Civic - squealing brakes','Diagnosis','Student A','Customer reports squeal at low speed.'||char(10)),
  ('2009 Ford F-150 - check engine light P0301','Diagnosis','Student B',''),

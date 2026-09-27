@@ -1,3 +1,9 @@
 __pycache__/
 *.db
+*.db-wal
+*.db-shm
+zone.db
+.pending/
+secrets.env
+*.token
 .venv/

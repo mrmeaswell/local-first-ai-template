@@ -68,7 +68,7 @@ The handbook's 15 pages remain the **glossary** (see Section 12). This doc is th
 |---|---|---|---|
 | `<zone>-mcp` | B. Records | Reads open; writes need confirmation | Assistant on behalf of a signed-in user |
 | `control-mcp` | A. AI layer | Admin role; every change auto-snapshots | Admin, from the Control Panel or assistant |
-| `host-mcp` | C. Host/equipment | Allowlist only, plan/apply, auto-rollback | Admin only; never on a student's behalf |
+| `host-mcp` | C. Host/equipment | Allowlist only, plan/apply, rollback declared per action kind | Admin only; never on a student's behalf |
 
 ---
 
@@ -144,7 +144,12 @@ This is the highest-risk layer, so it is fenced hard.
     device: obd_adapter
     risk: medium   # read-only
   ```
-- **Plan → apply → verify → auto-rollback.** Every action shows a plan, which is a dry run with the exact change. Apply is followed by a health check. If the admin doesn't confirm within N minutes, the helper reverts the change.
+- **Plan → apply → verify, and rollback semantics are declared per action kind.** Every action shows a plan, which is a dry run with the exact change. Apply is followed by a health check. Each kind in `helper/kinds/` declares a `rollback_mode`:
+  - `auto_revert`: if verification fails or the admin doesn't confirm within N minutes, the helper reverts the change (e.g. `systemd_restart`).
+  - `ttl_flag`: **create** actions get an expiry flag for a human to review. They are never auto-destroyed.
+  - `none`: only for read-only or trivially safe actions.
+- **Destroy actions are not allowed in v1.**
+- Actions are typed: `host-actions.yaml` names a `kind`, never a raw command. Kinds run fixed argument lists with `shell=False`.
 
 > **Analogy:** This is Junos `commit confirmed`, or Cisco's `reload in 10` before a risky ACL change. If you lock yourself out, the box undoes it for you. You're learning Terraform, and it's the same plan/apply discipline.
 
@@ -234,6 +239,7 @@ blend-zone-template/
     control-mcp/            # standard — do not fork
     host-mcp/               # standard — do not fork
   helper/                   # privileged helper + host-actions.yaml
+    kinds/                  # typed action kinds: plan/apply/status/rollback + rollback_mode
   config/ai/roles.yaml      # role → pinned model/adapter
   prompts/                  # versioned templates, tool descriptions
   retrieval/                # chunker config, index build scripts
@@ -249,7 +255,11 @@ blend-zone-template/
   RUNBOOK.md
 ```
 
-**Standard core tables (every zone):** `users`, `roles`, `events` (outbox and audit), `attachments`, `config_versions`, `host_action_log`.
+**Standard core tables (every zone):** `users` (hashed bearer tokens; `owner` for service users), `roles`, `events` (outbox and audit), `attachments`, `config_versions`, `host_action_log`, `plans` (AI-requested changes awaiting a human confirm token).
+
+**Standard roles:** each zone lists its own, plus the standard **`service`** role for non-human clients (kiosks, Shortcuts, scripts). A service user must have a human `owner`, and audit lines record both.
+
+**Write path for the AI:** the model calls `request_plan` → the API stores the plan and issues a one-time confirm token (SHA-256 stored, 5-minute expiry, same actor only) → `zone-mcp` strips the token and hands it to the orchestrator through a side channel → the human approves at the prompt → the orchestrator confirms. There is no confirm tool in MCP.
 
 **Creating a new zone:** copy the template → edit `zone.yaml` and `schema/` → write `zone-mcp` tools → seed the retrieval corpus → write the golden set → deploy a profile.
 
@@ -303,7 +313,7 @@ The eval runner is built into the Control Panel, so a non-developer lead can run
 | 1 | Assistant panel plus read-only `baylog-mcp`; local Ollama via gateway | Tool-selection evals pass |
 | 2 | `control-mcp` plus Control Panel (roles, prompts, draft → eval → promote, rollback) | Rollback tested |
 | 3 | Write tools with confirmation; audit | Negative suite 100% |
-| 4 | `host-mcp` plus privileged helper with 3–4 low-risk actions and auto-rollback | Lockout test passes (the helper reverts) |
+| 4 | `host-mcp` plus privileged helper with 3–4 low-risk typed actions and declared rollback modes | Lockout test passes (the helper reverts) |
 | 5 | Profile B offline sync (if needed) | Conflict drill passes |
 | 6 | Fine-tuned `extract` adapter through the promote flow | Section 9 checklist |
 | 7 | Second zone built from the template | Built without editing the standard components |

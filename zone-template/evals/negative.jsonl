@@ -1,7 +1,10 @@
-{"id":"n1","desc":"student cannot move a record into a lead-gated stage","call":["POST","/records/2/advance"],"role":"student","expect_status":403,"then":{"call":["GET","/records/2"],"expect":{"stage":"Diagnosis"}}}
-{"id":"n2","desc":"faked X-Role header is ignored (no token = 401)","call":["POST","/records/2/advance"],"headers":{"X-Role":"admin","X-User":"mallory"},"expect_status":401,"then":{"call":["GET","/records/2"],"expect":{"stage":"Diagnosis"}}}
-{"id":"n3","desc":"student token plus faked admin header still rejected","call":["POST","/records/2/advance"],"headers":{"Authorization":"Bearer student-demo-token","X-Role":"admin"},"expect_status":403}
-{"id":"n4","desc":"invalid token rejected","call":["POST","/records/1/notes"],"headers":{"Authorization":"Bearer guess"},"body":{"text":"x"},"expect_status":401}
-{"id":"n5","desc":"student cannot sign off their own work into QC","call":["POST","/records/3/advance"],"role":"student","expect_status":403,"then":{"call":["GET","/records/3"],"expect":{"stage":"Repair"}}}
-{"id":"n6","desc":"malformed JSON returns 400, not a dropped connection","call":["POST","/records/1/notes"],"role":"student","body":"{not json","expect_status":400}
-{"id":"n7","desc":"note without text rejected","call":["POST","/records/1/notes"],"role":"student","body":{},"expect_status":400}
+{"id":"n1","desc":"student cannot advance into a lead-gated stage (record unchanged)","call":["POST","/plans"],"as":"student","body":{"action":"advance_stage","params":{"record_id":2}},"expect_status":403,"then":{"call":["GET","/records/2"],"expect":{"stage":"Diagnosis"}}}
+{"id":"n2","desc":"forged X-Role/X-User headers with no token are rejected (record unchanged)","call":["POST","/records/2/advance"],"headers":{"X-Role":"admin","X-User":"mallory"},"expect_status":401,"then":{"call":["GET","/records/2"],"expect":{"stage":"Diagnosis"}}}
+{"id":"n3","desc":"no token","call":["GET","/records"],"headers":{},"expect_status":401}
+{"id":"n4","desc":"invalid token","call":["GET","/records"],"headers":{"Authorization":"Bearer not-a-real-token"},"expect_status":401}
+{"id":"n5","desc":"student token -> lead-gated stage via the direct UI route","call":["POST","/records/2/advance"],"as":"student","expect_status":403}
+{"id":"n6","desc":"old X-Role: admin header with a student token is ignored","call":["POST","/records/2/advance"],"as":"student","extra_headers":{"X-Role":"admin"},"expect_status":403}
+{"id":"n11","desc":"malformed JSON returns 400 JSON, connection not dropped","call":["POST","/plans"],"as":"student","raw":"{not json","expect_status":400,"expect_json":true}
+{"id":"n12","desc":"student cannot sign off their own work into QC","call":["POST","/plans"],"as":"student","body":{"action":"advance_stage","params":{"record_id":3}},"expect_status":403}
+{"id":"n13","desc":"unknown plan action rejected","call":["POST","/plans"],"as":"lead","body":{"action":"drop_tables","params":{}},"expect_status":400}
+{"id":"n14","desc":"students cannot read the audit log","call":["GET","/events"],"as":"student","expect_status":403}
