@@ -1,3 +1,7 @@
 # Allowlist. Anything not listed here cannot run.
+# Commands are argv lists executed WITHOUT a shell (no pipes, globs, or interpolation).
 actions:
-  restart_app: {cmd: "systemctl restart zone-api", verify: "curl -sf http://127.0.0.1:8080/zone", rollback_after_s: 60}
+  restart_app:
+    argv: ["systemctl", "restart", "zone-api"]
+    verify_http: "http://127.0.0.1:8080/zone"
+    rollback_after_s: 60

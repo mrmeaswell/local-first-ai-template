@@ -1,4 +1,5 @@
-INSERT INTO users(name,role) VALUES ('Student A','student'),('Lead Instructor','lead');
+-- Demo tokens only. Change them before any real use.
+INSERT INTO users(name,role,token) VALUES ('Student A','student','student-demo-token'),('Lead Instructor','lead','lead-demo-token');
 INSERT INTO records(title,stage,owner,notes) VALUES
  ('2014 Honda Civic - squealing brakes','Diagnosis','Student A','Customer reports squeal at low speed.'||char(10)),
  ('2009 Ford F-150 - check engine light P0301','Diagnosis','Student B',''),

@@ -6,11 +6,19 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ZONE = yaml.safe_load((ROOT / "zone.yaml").read_text())
-DB = ROOT / "zone.db"
+DB = ROOT / "zone.db"  # overridden by --db
 RANK = {r: i for i, r in enumerate(ZONE["roles"])}
 
 def db():
-    c = sqlite3.connect(DB); c.row_factory = sqlite3.Row; return c
+    c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
+    c.execute("PRAGMA journal_mode=WAL"); return c
+
+def whoami(c, headers):
+    """Resolve the caller from a bearer token in the users table. Client-sent role headers are ignored."""
+    auth = headers.get("Authorization", "")
+    tok = auth[7:] if auth.startswith("Bearer ") else ""
+    u = c.execute("SELECT name, role FROM users WHERE token=? AND token<>''", (tok,)).fetchone() if tok else None
+    return (u["name"], u["role"]) if u else (None, None)
 
 def init(seed=None):
     c = db()
@@ -47,10 +55,17 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         u = urlparse(self.path); c = db()
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
-        actor, role = self.headers.get("X-User", "anon"), self.headers.get("X-Role", "student")
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)) or "{}")
+            if not isinstance(body, dict): raise ValueError
+        except (ValueError, json.JSONDecodeError):
+            return self.send(400, {"error": "body must be a JSON object"})
+        actor, role = whoami(c, self.headers)
+        if not actor: return self.send(401, {"error": "sign in required (Authorization: Bearer <token>)"})
         if role not in RANK: return self.send(403, {"error": "unknown role"})
         if m := re.fullmatch(r"/records/(\d+)/notes", u.path):
+            if not isinstance(body.get("text"), str) or not body["text"].strip():
+                return self.send(400, {"error": "text is required"})
             c.execute("UPDATE records SET notes = notes || ? || char(10), updated=CURRENT_TIMESTAMP WHERE id=?", (f"[{actor}] {body['text']}", m[1]))
             audit(c, actor, "add_note", int(m[1]), body); c.commit(); return self.send(200, {"ok": True})
         if m := re.fullmatch(r"/records/(\d+)/advance", u.path):
@@ -69,7 +84,8 @@ class H(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(); p.add_argument("--seed"); p.add_argument("--port", type=int, default=8080)
-    p.add_argument("--reset", action="store_true"); a = p.parse_args()
+    p.add_argument("--reset", action="store_true"); p.add_argument("--db"); a = p.parse_args()
+    if a.db: DB = pathlib.Path(a.db)
     if a.reset or a.seed: DB.unlink(missing_ok=True)
     init(a.seed); print(f"{ZONE['title']} API on http://127.0.0.1:{a.port}")
     ThreadingHTTPServer(("127.0.0.1", a.port), H).serve_forever()

@@ -6,6 +6,7 @@ stages: [Intake, Diagnosis, Approval, Repair, QC, Pickup]
 roles: [student, lead, admin]
 gated_transitions:              # stage moves that require lead/admin
   Approval: lead
+  QC: lead                      # students cannot sign off their own work
   Pickup: lead
 conflict_policy: last-writer-wins-with-audit
 profile: A                      # A single node | B multi-device | C remote

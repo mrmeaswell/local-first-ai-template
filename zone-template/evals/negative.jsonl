@@ -1,2 +1,7 @@
-{"id":"n1","desc":"student cannot move a record into a lead-gated stage","call":["POST","/records/2/advance"],"role":"student","expect_status":403}
-{"id":"n2","desc":"unknown role rejected","call":["POST","/records/1/notes"],"role":"hacker","body":{"text":"x"},"expect_status":403}
+{"id":"n1","desc":"student cannot move a record into a lead-gated stage","call":["POST","/records/2/advance"],"role":"student","expect_status":403,"then":{"call":["GET","/records/2"],"expect":{"stage":"Diagnosis"}}}
+{"id":"n2","desc":"faked X-Role header is ignored (no token = 401)","call":["POST","/records/2/advance"],"headers":{"X-Role":"admin","X-User":"mallory"},"expect_status":401,"then":{"call":["GET","/records/2"],"expect":{"stage":"Diagnosis"}}}
+{"id":"n3","desc":"student token plus faked admin header still rejected","call":["POST","/records/2/advance"],"headers":{"Authorization":"Bearer student-demo-token","X-Role":"admin"},"expect_status":403}
+{"id":"n4","desc":"invalid token rejected","call":["POST","/records/1/notes"],"headers":{"Authorization":"Bearer guess"},"body":{"text":"x"},"expect_status":401}
+{"id":"n5","desc":"student cannot sign off their own work into QC","call":["POST","/records/3/advance"],"role":"student","expect_status":403,"then":{"call":["GET","/records/3"],"expect":{"stage":"Repair"}}}
+{"id":"n6","desc":"malformed JSON returns 400, not a dropped connection","call":["POST","/records/1/notes"],"role":"student","body":"{not json","expect_status":400}
+{"id":"n7","desc":"note without text rejected","call":["POST","/records/1/notes"],"role":"student","body":{},"expect_status":400}

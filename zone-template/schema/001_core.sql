@@ -1,5 +1,6 @@
 -- Standard core tables (every zone). Do not fork.
-CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL,
+  token TEXT UNIQUE);  -- local sign-in token (demo only; use hashed PINs or SSO in production)
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, ts TEXT DEFAULT CURRENT_TIMESTAMP,
   actor TEXT, action TEXT, record_id INTEGER, detail TEXT);
 CREATE TABLE IF NOT EXISTS attachments (id INTEGER PRIMARY KEY, record_id INTEGER, path TEXT);
