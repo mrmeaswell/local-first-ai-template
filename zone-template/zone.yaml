@@ -8,6 +8,12 @@ gated_transitions:              # stage moves that require at least this role
   Approval: lead
   QC: lead                      # students cannot sign off their own work
   Pickup: lead
+service_roles: [service]        # non-human clients; each needs a human --owner
+permissions:                    # every role named here must be in roles, or the API refuses to start
+  view_audit: [lead, admin]
+  view_others_plans: [lead, admin]
+  approve: [service, student, lead, admin]   # may confirm their OWN plans
+  host_actions: [admin]
 plan_ttl_seconds: 300           # confirm tokens expire after 5 minutes
 conflict_policy: last-writer-wins-with-audit
 profile: A                      # A single node | B multi-device | C remote

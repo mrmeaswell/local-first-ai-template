@@ -164,7 +164,7 @@ This is the highest-risk layer, so it is fenced hard.
 ## 7. Local model runtime & gateway
 
 - **Runtime:** Ollama on the local box. On a virtualization cluster, a dedicated GPU node can serve models for every zone. A standalone shop mini-PC runs its own small model.
-- **Gateway:** a thin OpenAI-compatible proxy inside the stack that maps roles to pinned models and adapters, enforces timeouts (the CT 200 lesson: explicit abort, never hang the UI), and emits traces.
+- **Gateway:** a thin OpenAI-compatible proxy inside the stack that maps roles to pinned models and adapters, enforces timeouts (lesson from a past deployment: explicit abort, never hang the UI), and emits traces.
 - **Offline default:** no frontier-model calls. An optional `remote` role can be enabled per zone when policy allows and the internet is up, and the tool must degrade gracefully without it.
 - **Hardware tiers** (the template states minimums; each zone picks one):
 

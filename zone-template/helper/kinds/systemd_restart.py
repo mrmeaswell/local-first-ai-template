@@ -36,3 +36,4 @@ class SystemdRestart(ActionKind):
     def rollback(self, handle):
         r = self._run("restart")
         return {"reverted": r.returncode == 0}
+KIND_NAME, KIND = "systemd_restart", SystemdRestart

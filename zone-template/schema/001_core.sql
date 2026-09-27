@@ -9,5 +9,7 @@ CREATE TABLE IF NOT EXISTS config_versions (id INTEGER PRIMARY KEY, ts TEXT DEFA
 CREATE TABLE IF NOT EXISTS host_action_log (id INTEGER PRIMARY KEY, ts TEXT DEFAULT CURRENT_TIMESTAMP, action TEXT, result TEXT);
 CREATE TABLE IF NOT EXISTS plans (id INTEGER PRIMARY KEY, actor TEXT NOT NULL, action TEXT NOT NULL,
   params TEXT NOT NULL, summary TEXT, token_hash TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',  -- pending|executed|expired|failed
-  created TEXT DEFAULT CURRENT_TIMESTAMP, expires_at TEXT NOT NULL, result TEXT);
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending|executed|expired|stale|failed
+  created TEXT DEFAULT CURRENT_TIMESTAMP, expires_at TEXT NOT NULL, result TEXT,
+  snapshot TEXT,        -- hash of the record(s) the plan depends on; any change -> stale
+  payload_hash TEXT);   -- hash of (action, resolved params, summary shown, snapshot)
