@@ -41,6 +41,7 @@ main{flex:1;width:100%;max-width:880px;margin:0 auto;padding:24px 16px 8px}
 .how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 24px}
 .how div{border-top:2px solid var(--accent);padding-top:8px;font-size:14px;color:var(--ink-2)}
 .how b{display:block;color:var(--ink);font:600 15px/1.3 var(--serif)}
+.pick{font-size:14px;color:var(--ink-3);margin:0 0 10px}
 .starters{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .starter{text-align:left;background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:14px 16px;cursor:pointer}
 .starter:hover{border-color:var(--accent)}
@@ -117,6 +118,7 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
       <div><b>In the draft</b>Emile reads your course context, the MSCB scenario and the quiz spec.</div>
       <div><b>On the way out</b>Emile's own validators check the draft. Anything that fails gets one revision.</div>
     </div>
+    <p class="pick">Pick a starting point. It fills the box below so you can change it before you send, or write your own.</p>
     <div class="starters" id="starters"></div>
   </section>
   <section class="log" id="log" aria-live="polite"></section>
@@ -249,7 +251,7 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
   }
 
   $("#starters").append(...STARTERS.map(s => h("button", { class: "starter" + (s.warn ? " warnish" : ""), type: "button",
-    onclick: () => { if (s.c) courseSel.value = s.c; ask(s.q); } }, [h("b", { text: s.t }), h("span", { text: s.d })])));
+    onclick: () => { if (s.c) courseSel.value = s.c; input.value = s.q; grow(); input.focus(); input.setSelectionRange(input.value.length, input.value.length); } }, [h("b", { text: s.t }), h("span", { text: s.d })])));
 
   // ---------- asking
   function download(name, text) {
@@ -312,7 +314,7 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
     } catch (e) {
       wait.replaceWith(h("div", { class: "err", text: "Couldn't reach Emile: " + e.message }));
     } finally {
-      clearInterval(tick); busy = false; send.disabled = false; input.focus();
+      clearInterval(tick); busy = false; send.disabled = false; input.focus(); loadHealth();
     }
   }
 
