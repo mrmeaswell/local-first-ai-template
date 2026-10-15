@@ -21,12 +21,16 @@ def get(path, **params):
 
 @mcp.tool()
 def get_record(record_id: int) -> dict:
-    """Get one record (e.g. a work order) by numeric ID, including stage and notes."""
+    """Get one record (e.g. a work order) by its numeric ID, including stage and notes.
+    Use ONLY with an ID the user stated or that search_records returned. Never guess an ID:
+    if you only have a description (vehicle, customer, symptom), call search_records first."""
     return get(f"/records/{record_id}")
 
 @mcp.tool()
 def search_records(query: str = "") -> list:
-    """Search records by keyword in title or notes. Empty query lists all."""
+    """Find records (e.g. work orders) by keyword in title or notes, such as a vehicle make/model,
+    customer, or symptom. Use this whenever the user describes a record without giving its ID.
+    Returns matching records with their IDs. Empty query lists all."""
     return get("/records", q=query)
 
 @mcp.tool()
