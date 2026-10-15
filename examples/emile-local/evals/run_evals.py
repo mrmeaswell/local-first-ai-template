@@ -61,6 +61,18 @@ def gate_suite():
         report("gate", oid, "PASS" if got == expect else "FAIL", f"expect fail {sorted(expect) or 'none'}, got {sorted(got) or 'none'}")
 
 
+def mode_gate_suite():
+    req = ["Objective", "Not Meeting Yet", "Spaced check"]
+    full = "## Objective\nx\n## Not Meeting Yet\ny\n## Spaced check\nz"
+    got = {c["name"]: c for c in gate.check(full, "", req, "Test")}
+    report("gate", "r1", "PASS" if got.get("Test complete", {}).get("pass") else "FAIL", "add-on mode: all required sections present -> passes")
+    got = {c["name"]: c for c in gate.check(full.split("## Spaced check")[0], "", req, "Test")}
+    c = got.get("Test complete", {})
+    report("gate", "r2", "PASS" if c and not c["pass"] and "Spaced check" in c["detail"] else "FAIL", f"missing section is caught: {c.get('detail', '')}")
+    got = {c["name"] for c in gate.check("Which course is this for?", "", req, "Test")}
+    report("gate", "r3", "PASS" if "Test complete" not in got else "FAIL", "a short clarifying question isn't held to the package rule")
+
+
 async def emile_suite():
     p = StdioServerParameters(command=EMILE_PY, args=[str(gate.EMILE_DIR / "server.py")])
     try:
@@ -101,6 +113,18 @@ def answer_suite(local):
     ev = chat("Jordan Lee (jlee42@student.rtc.edu, ID 201234567) got 58% on the midterm. Help me write feedback.")
     report("answer", "b1", "PASS" if ev and ev[0]["type"] == "blocked" and len(ev) == 1 else "FAIL",
            "student data is stopped before any model is called: " + (ev[0].get("text", "")[:70] if ev else "no response"))
+    for m in httpx.get(f"{APP}/api/modes", timeout=15).json():   # every installed add-on mode gets one end-to-end package
+        if not m["starters"]:
+            continue
+        q = m["starters"][-1]["q"]
+        ev = [json.loads(l) for l in httpx.post(f"{APP}/api/chat", timeout=1200, json={"message": q, "mode": m["id"]}).text.splitlines() if l.strip()]
+        ans = next((e for e in ev if e["type"] in ("answer", "error")), {})
+        chk = next((e for e in ev if e["type"] == "checks"), {"checks": [], "revised": False})
+        failed = [f"{c['name']} ({c['detail']})" for c in chk["checks"] if not c["pass"]]
+        has_rule = any(c["name"].endswith("complete") for c in chk["checks"])
+        report("answer", "a-" + m["id"][:3], "PASS" if ans.get("type") == "answer" and has_rule and not failed else "FAIL",
+               f"{m['name']} mode, starter {m['starters'][-1]['t']!r}: {ans.get('seconds', '?')}s"
+               f"{' revised' if chk['revised'] else ''}{' FAILED: ' + '; '.join(failed) if failed else ''}")
     qs = QUESTIONS + ([("l1", "CNT 290", QUESTIONS[0][2], QUESTIONS[0][3])] if local else [])
     for qid, course, msg, extra in qs:
         ev = chat(msg, course, local_only=qid.startswith("l"))
@@ -117,6 +141,7 @@ def answer_suite(local):
 
 
 gate_suite()
+mode_gate_suite()
 asyncio.run(emile_suite())
 answer_suite("--local" in sys.argv)
 n = {s: results.count(s) for s in ("PASS", "FAIL", "SKIPPED")}

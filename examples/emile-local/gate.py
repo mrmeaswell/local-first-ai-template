@@ -87,8 +87,13 @@ def _unquote_instructor(answer: str, source: str) -> str:
     return QUOTED.sub(blank, answer) if src else answer
 
 
-def check(answer: str, source: str = "") -> list[dict]:
-    """source: the instructor's message this answers (quotes from it are exempt from the language lint)."""
+HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$", re.M)
+
+
+def check(answer: str, source: str = "", required: list[str] | None = None, mode_name: str = "") -> list[dict]:
+    """source: the instructor's message this answers (quotes from it are exempt from the language lint).
+    required: section headings an add-on mode demands (checked only when the answer is a deliverable,
+    i.e. has headings; a short clarifying reply is left alone)."""
     a = answer or ""
     out = []
 
@@ -119,6 +124,11 @@ def check(answer: str, source: str = "") -> list[dict]:
 
     leaked = student_data(a)
     add("no student data", not leaked, ", ".join(leaked))
+
+    heads = [h.lower() for h in HEADING.findall(a)]
+    if required and heads:
+        missing = [r for r in required if not any(r.lower() in h for h in heads)]
+        add(f"{mode_name or 'package'} complete", not missing, ("missing sections: " + ", ".join(missing)) if missing else "")
     return out
 
 

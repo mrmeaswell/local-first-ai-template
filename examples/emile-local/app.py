@@ -45,6 +45,9 @@ NUM_CTX = int(os.environ.get("EMILE_NUM_CTX", "8192"))
 MAX_ROUNDS = 6
 CLAUDE_LAST = {"ok": None, "error": ""}  # result of the last real Claude call; the free health check can't see billing errors
 ADDENDUM = (HERE / "prompts" / "app-addendum.md").read_text()
+# Add-on modes: Markdown files dropped into EMILE_ADDENDA on the server (kept out of this repo, so an
+# add-on can have its own owner). Header lines before a "---" line configure the mode; the rest is prompt.
+ADDENDA = Path(os.environ.get("EMILE_ADDENDA", HERE / "addenda"))
 
 
 def data(name: str) -> str:
@@ -87,6 +90,7 @@ class Turn(BaseModel):
 class ChatIn(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
     course: str | None = Field(default=None, max_length=12)
+    mode: str | None = Field(default=None, max_length=40)
     local_only: bool = False
     history: list[Turn] = Field(default_factory=list, max_length=16)
 
@@ -99,6 +103,44 @@ async def index():
 @app.get("/api/courses")
 async def api_courses():
     return courses()
+
+
+def modes() -> dict:
+    """{id: {name, required, starters, text}} from ADDENDA/*.md (README.md ignored).
+
+    # Name                                   first heading = the mode's display name
+    Required headings: A | B | C             sections every deliverable in this mode must have (checked in code)
+    Starter: Title | short description | prompt text (use \\n for new lines, [brackets] for blanks)
+    ---
+    prompt text appended to Emile's system prompt
+    """
+    out = {}
+    if not ADDENDA.is_dir():
+        return out
+    for f in sorted(ADDENDA.glob("*.md")):
+        if f.name.lower() == "readme.md":
+            continue
+        raw = f.read_text(encoding="utf-8")
+        head, sep, body = raw.partition("\n---\n")
+        if not sep:
+            head, body = "", raw
+        name = next((l[2:].strip() for l in raw.splitlines() if l.startswith("# ")), f.stem)
+        req, starters = [], []
+        for l in head.splitlines():
+            k, _, v = l.partition(":")
+            if k.strip().lower() == "required headings":
+                req = [x.strip() for x in v.split("|") if x.strip()]
+            elif k.strip().lower() == "starter":
+                parts = [x.strip() for x in v.split("|", 2)]
+                if len(parts) == 3:
+                    starters.append({"t": parts[0], "d": parts[1], "q": parts[2].replace("\\n", "\n")})
+        out[f.stem] = {"name": name, "required": req, "starters": starters, "text": body.strip()}
+    return out
+
+
+@app.get("/api/modes")
+async def api_modes():
+    return [{"id": k, "name": v["name"], "starters": v["starters"], "required": v["required"]} for k, v in modes().items()]
 
 
 def _claude_headers():
@@ -247,13 +289,18 @@ The instructor may teach any subject: nursing, welding, accounting, ESL, automot
 - Quiz objectives use whatever standard the instructor names, or "Course objective N" if none. Rubrics use the instructor's scale if given; otherwise Not Yet / Approaching / Meeting / Exceeding."""
 
 
-def system_prompt(course: str | None) -> str:
+def system_prompt(course: str | None, mode: dict | None = None) -> str:
     parts = [data("emile-system.md"), ADDENDUM]
     f = EMILE_DIR / "data" / f"course-{re.sub(r'[^a-z0-9]', '', (course or '').lower())}.md"
     if course and f.is_file():
         parts.append(f.read_text(encoding="utf-8") + f"\n\nThe instructor is working on {course}.")
     else:
         parts.append(GENERAL_MODE)
+    if mode:
+        parts.append(f"## {mode['name']} mode\nThe instructor turned on the {mode['name']} add-on. Follow it for this deliverable; "
+                     "where it conflicts with the length guidance above, it wins."
+                     + (f"\nEvery deliverable must include these sections as ## headings: {', '.join(mode['required'])}." if mode["required"] else "")
+                     + "\n\n" + mode["text"])
     return "\n\n".join(parts)
 
 
@@ -280,7 +327,9 @@ async def chat_events(body: ChatIn):
             # The model gets Emile's library (course, scenario, spec, anti-patterns), not the validators:
             # the code runs those on every answer, so the musician never tunes its own instrument.
             tools_ = [t for t in (await s.list_tools()).tools if t.name.startswith("emile_get_")]
-            system = system_prompt(body.course)
+            mode = modes().get(body.mode) if body.mode else None
+            system = system_prompt(body.course, mode)
+            req, mname = (mode["required"], mode["name"]) if mode else (None, "")
             yield line({"type": "status", "text": "Thinking…"})
             if API_KEY and not body.local_only:
                 try:
@@ -314,18 +363,18 @@ async def chat_events(body: ChatIn):
 
             # Outbound gate: Emile's validators on the draft; one revision round if anything fails.
             yield line({"type": "status", "text": "Checking against Emile's rules…"})
-            checks, revised = gate.check(st.answer, body.message), False
+            checks, revised = gate.check(st.answer, body.message, req, mname), False
             if gate.failures(checks):
                 yield line({"type": "status", "text": "Revising: " + ", ".join(c["name"] for c in gate.failures(checks)) + "…"})
                 try:
                     second = await st.revise(gate.repair_instruction(checks))
-                    checks2 = gate.check(second, body.message)
+                    checks2 = gate.check(second, body.message, req, mname)
                     if second and len(gate.failures(checks2)) <= len(gate.failures(checks)):
                         st.answer, checks, revised = second, checks2, True
                 except Exception as e:
                     print(f"[emile] revision failed: {type(e).__name__}: {e}", file=sys.stderr)
             yield line({"type": "checks", "checks": checks, "revised": revised, "terms": gate.new_terms(st.answer)})
-            yield line({"type": "answer", "text": st.answer or "(no answer)", "seconds": secs(), "model": st.model,
+            yield line({"type": "answer", "text": st.answer or "(no answer)", "seconds": secs(), "model": st.model, "mode": mname,
                         "fallback": bool(fallback), "local": st.model == MODEL})
     except httpx.HTTPError as e:
         yield line({"type": "error", "text": f"No model is answering ({type(e).__name__}). Check Ollama and the network."})

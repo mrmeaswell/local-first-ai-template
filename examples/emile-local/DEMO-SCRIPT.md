@@ -30,6 +30,8 @@
 
 **7. Swap the musician (45 s, optional).** Tick **On-prem only** and ask something short, like "Give me a one-paragraph bridge for VLANs for a learner coming from retail." "Same Emile, same rules, now running entirely on our own hardware. Slower, because it's CPU only, but nothing leaves the building." While it works, point at the header status.
 
+**7a. Miftah (90 s).** Switch the second menu to **Miftah**, click **Example: Medical Assistant**, then **Send**. "Miftah is the objective framework we're building at RTC." *(Credit your colleague by name here.)* " One objective becomes a placement diagnostic, four levels from Not Meeting Yet to Exceeding, a demonstrate-and-share capstone, and a spaced check. Notice the chip **Miftah complete**: code verifies every section is there. If one's missing, it goes back before I see it." Then: "Emile is mine, and Miftah is RTC's. They plug together on the server, but they're separate files with separate owners."
+
 **7b. Any subject (30 s).** Switch the menu back to **Any subject**: the starters become fill-in templates. "For colleagues there's a link that hides my courses entirely. Pick a template, Tab through the brackets, and it works for nursing, welding, or accounting just as well."
 
 **8. Close (30 s).** "The AI provides the judgment and the code enforces the rules. The model can change; the rules don't. And a person still publishes."

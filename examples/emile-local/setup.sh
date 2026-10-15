@@ -21,6 +21,7 @@ CLAUDE_MODEL="${CLAUDE_MODEL:-claude-sonnet-5}"
 OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}"
 EMILE_DIR="$DEMO_DIR/emile"
 SECRETS="$DEMO_DIR/secrets.env"
+ADDENDA="$DEMO_DIR/addenda"   # add-on modes (e.g. a college-owned addendum); kept outside the repo
 OTHER_SECRETS=/opt/baylog-demo/secrets.env   # key saved earlier for the Bay Log demo, if any
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -51,7 +52,7 @@ say "Packages"
 apt-get install -y -qq git python3-venv curl >/dev/null
 
 say "Emile (prompt, specs, MSCB, validators) from $EMILE_REPO"
-mkdir -p "$DEMO_DIR"
+mkdir -p "$DEMO_DIR" "$ADDENDA"
 if [ -d "$EMILE_DIR/.git" ]; then git -C "$EMILE_DIR" pull -q --ff-only
 else git clone -q --depth 1 "$EMILE_REPO" "$EMILE_DIR"; fi
 
@@ -75,6 +76,7 @@ Environment=EMILE_PYTHON=$DEMO_DIR/emile-venv/bin/python
 Environment=OLLAMA_URL=$OLLAMA_URL
 Environment=MODEL=$MODEL
 Environment=CLAUDE_MODEL=$CLAUDE_MODEL
+Environment=EMILE_ADDENDA=$ADDENDA
 EnvironmentFile=-$SECRETS
 ExecStart=$DEMO_DIR/venv/bin/uvicorn app:app --host 0.0.0.0 --port $PORT
 Restart=on-failure

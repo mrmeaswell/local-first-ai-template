@@ -31,7 +31,7 @@ header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper)
 .status{display:flex;align-items:center;gap:6px;color:var(--ink-2);font-size:13px;margin-right:auto}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}.dot.ok{background:var(--ok)}.dot.warn{background:#c58a12}.dot.bad{background:var(--bad)}
 .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-select{height:36px;width:250px;max-width:100%;min-width:0;text-overflow:ellipsis;border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:0 10px}
+select{height:36px;width:220px;max-width:100%;min-width:0;text-overflow:ellipsis;border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:0 10px}
 .toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2);cursor:pointer;user-select:none;
   height:36px;padding:0 10px;border:1px solid var(--rule);border-radius:10px;background:var(--card)}
 .toggle input{accent-color:var(--accent);width:16px;height:16px}
@@ -105,6 +105,7 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
   <div class="status" id="status"><span class="dot"></span><span>Checking…</span></div>
   <div class="ctl">
     <select id="course" aria-label="Course"><option value="">Any subject</option></select>
+    <select id="mode" aria-label="Add-on mode" hidden><option value="">Emile</option></select>
     <label class="toggle" title="Send this conversation only to the model on the shop's own server"><input type="checkbox" id="local"> On-prem only</label>
   </div>
 </div></header>
@@ -169,7 +170,8 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
   ];
 
   let history = [], busy = false, health = {};
-  const log = $("#log"), input = $("#in"), send = $("#send"), courseSel = $("#course"), localBox = $("#local");
+  const log = $("#log"), input = $("#in"), send = $("#send"), courseSel = $("#course"), localBox = $("#local"), modeSel = $("#mode");
+  let MODES = {};
 
   // ---------- Markdown (escape first, then a small safe subset)
   const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -267,8 +269,11 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
 
   function renderStarters() {
     // No course: discipline-neutral templates anyone can fill in. A course picked: worked CNT examples.
-    const general = !courseSel.value, list = general ? GENERAL_STARTERS : CNT_STARTERS;
-    $("#pick").textContent = general
+    const mode = MODES[modeSel.value];
+    const general = !courseSel.value, list = mode ? mode.starters : general ? GENERAL_STARTERS : CNT_STARTERS;
+    $("#pick").textContent = mode
+      ? `${mode.name} mode is on. Pick a template, replace each [bracket], then send. Every package must include: ${mode.required.join(", ")}.`
+      : general
       ? "Pick a template. It fills the box below; replace each [bracket] with your own course and learners, then send."
       : "Pick a worked example. It fills the box below so you can change it before you send.";
     $("#starters").replaceChildren(...list.map(s => h("button", { class: "starter" + (s.warn ? " warnish" : ""), type: "button",
@@ -280,6 +285,16 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
       } }, [h("b", { text: s.t }), h("span", { text: s.d })])));
   }
   courseSel.addEventListener("change", renderStarters);
+  modeSel.addEventListener("change", () => { renderStarters(); $("#intro").hidden = false; });
+
+  async function loadModes() {
+    try {
+      for (const m of await (await fetch("/api/modes")).json()) {
+        MODES[m.id] = m; modeSel.append(h("option", { value: m.id, text: m.name }));
+      }
+      modeSel.hidden = !Object.keys(MODES).length;
+    } catch {}
+  }
 
   // ---------- asking
   function download(name, text) {
@@ -292,18 +307,18 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
     if (!q || busy) return;
     busy = true; send.disabled = true; input.value = ""; grow();
     $("#intro").hidden = true;
-    const course = courseSel.value || null, localOnly = localBox.checked;
+    const course = courseSel.value || null, localOnly = localBox.checked, modeName = MODES[modeSel.value]?.name;
     log.append(h("div", { class: "you" }, [document.createTextNode(q),
-      h("span", { class: "tag", text: [course, localOnly ? "on-prem only" : null].filter(Boolean).join(" · ") || "no course" })]));
+      h("span", { class: "tag", text: [course || "any subject", modeName ? modeName + " mode" : null, localOnly ? "on-prem only" : null].filter(Boolean).join(" · ") })]));
     const steps = h("ul", { class: "steps" }), wait = h("div", { class: "wait", text: "Thinking…" });
-    const card = h("article", { class: "em" }, [h("div", { class: "who", text: "Emile" }), steps, wait]);
+    const card = h("article", { class: "em" }, [h("div", { class: "who", text: modeName ? `Emile · ${modeName}` : "Emile" }), steps, wait]);
     log.append(card); card.scrollIntoView({ block: "end", behavior: "smooth" });
     const t0 = Date.now(); let label = "Thinking…";
     const tick = setInterval(() => { wait.textContent = `${label} ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
     let answer = "", checks = null;
     try {
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: q, course, local_only: localOnly, history }) });
+        body: JSON.stringify({ message: q, course, mode: modeSel.value || null, local_only: localOnly, history }) });
       if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
       const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
       for (;;) {
@@ -358,7 +373,7 @@ textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-
   });
   $("#form").addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
   if (GENERAL_ONLY) courseSel.hidden = true; else loadCourses();
-  renderStarters(); loadHealth(); setInterval(loadHealth, 30000);
+  renderStarters(); loadModes(); loadHealth(); setInterval(loadHealth, 30000);
 })();
 </script>
 </body>

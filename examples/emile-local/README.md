@@ -41,6 +41,8 @@ Open `http://<box-ip>:8091`.
 
 **Two modes.** With a course picked, Emile uses that course's context and the MSCB scenario, and the starters are worked CNT examples. With **Any subject**, Emile works in the instructor's own field (no MSCB, no CompTIA/AWS objectives) and the starters are fill-in templates (Tab jumps to the next `[bracket]`). Share **`/?general`** with colleagues: it hides the course menu, so they only see the any-subject version.
 
+**Add-on modes.** Markdown files in `/opt/emile-local/addenda/` appear as modes in a second menu (for example a college's own framework). An add-on brings its own instructions, starter templates, and **required sections that are checked in code**. Add-on files are never committed here (`.gitignore`), so an add-on can have a different owner from Emile. Format: [`addenda/README.md`](addenda/README.md).
+
 **A prompt Emile answers well without follow-up questions:**
 
 ```
