@@ -43,6 +43,7 @@ OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 MODEL = os.environ.get("MODEL", "qwen2.5:7b")
 NUM_CTX = int(os.environ.get("EMILE_NUM_CTX", "8192"))
 MAX_ROUNDS = 6
+CLAUDE_LAST = {"ok": None, "error": ""}  # result of the last real Claude call; the free health check can't see billing errors
 ADDENDUM = (HERE / "prompts" / "app-addendum.md").read_text()
 
 
@@ -114,6 +115,8 @@ async def health():
             try:
                 r = await c.get(f"{ANTHROPIC}/v1/models/{CLAUDE_MODEL}", headers=_claude_headers())
                 out["claude"] = "ok" if r.status_code == 200 else {401: "key rejected", 404: f"model {CLAUDE_MODEL} not found"}.get(r.status_code, f"HTTP {r.status_code}")
+                if out["claude"] == "ok" and CLAUDE_LAST["ok"] is False:
+                    out["claude"] = CLAUDE_LAST["error"]
             except Exception as e:
                 out["claude"] = f"unreachable ({type(e).__name__})"
         try:
@@ -173,7 +176,10 @@ async def run_claude(s, tools_, system, history, message, st):
                 "model": CLAUDE_MODEL, "max_tokens": 3000, "system": system, "tools": tools,
                 "messages": msgs, **(extra or {})})
         if r.status_code != 200:
-            raise httpx.HTTPStatusError(f"Claude API {r.status_code}: {r.text[:200]}", request=r.request, response=r)
+            msg = (r.json().get("error", {}).get("message", "") if "json" in r.headers.get("content-type", "") else "") or r.text[:120]
+            CLAUDE_LAST.update(ok=False, error="no API credit" if "credit balance" in msg else f"API error {r.status_code}")
+            raise httpx.HTTPStatusError(f"Claude API {r.status_code}: {msg[:200]}", request=r.request, response=r)
+        CLAUDE_LAST.update(ok=True, error="")
         return r.json()
 
     text_of = lambda res: "".join(b.get("text", "") for b in res["content"] if b.get("type") == "text").strip()
@@ -271,6 +277,8 @@ async def chat_events(body: ChatIn):
                         yield line(ev)
                 except (httpx.HTTPError, KeyError, ValueError) as e:
                     fallback = str(e)[:160] or type(e).__name__
+                    if CLAUDE_LAST["ok"] is not False:
+                        CLAUDE_LAST.update(ok=False, error=f"unreachable ({type(e).__name__})")
                     print(f"[emile] Claude failed, falling back to {MODEL}: {fallback}", file=sys.stderr)
                     st = State()
                     yield line({"type": "status", "text": "Cloud model unreachable. Switching to the on-prem model…"})
