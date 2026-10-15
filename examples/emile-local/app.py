@@ -239,12 +239,21 @@ async def run_local(s, tools_, system, history, message, st):
         yield {"type": "status", "text": "Drafting…"}
 
 
+GENERAL_MODE = """## General mode (no course selected)
+The instructor may teach any subject: nursing, welding, accounting, ESL, automotive, and so on. In this mode:
+- Don't default to the MSCB scenario or its service providers, and don't cite CompTIA or AWS objectives unless the instructor does.
+- Anchor examples in the instructor's own field and in their learners' working lives. If the field isn't clear from the request, ask what it is (it counts as one of your three questions).
+- If the request still contains [bracketed placeholders], ask the instructor to fill them in instead of guessing.
+- Quiz objectives use whatever standard the instructor names, or "Course objective N" if none. Rubrics use the instructor's scale if given; otherwise Not Yet / Approaching / Meeting / Exceeding."""
+
+
 def system_prompt(course: str | None) -> str:
     parts = [data("emile-system.md"), ADDENDUM]
-    if course:
-        f = EMILE_DIR / "data" / f"course-{re.sub(r'[^a-z0-9]', '', course.lower())}.md"
-        if f.is_file():
-            parts.append(f.read_text(encoding="utf-8") + f"\n\nThe instructor is working on {course}.")
+    f = EMILE_DIR / "data" / f"course-{re.sub(r'[^a-z0-9]', '', (course or '').lower())}.md"
+    if course and f.is_file():
+        parts.append(f.read_text(encoding="utf-8") + f"\n\nThe instructor is working on {course}.")
+    else:
+        parts.append(GENERAL_MODE)
     return "\n\n".join(parts)
 
 

@@ -39,6 +39,19 @@ cd /opt/lfat-emile/examples/emile-local && ./setup.sh
 
 Open `http://<box-ip>:8091`.
 
+**Two modes.** With a course picked, Emile uses that course's context and the MSCB scenario, and the starters are worked CNT examples. With **Any subject**, Emile works in the instructor's own field (no MSCB, no CompTIA/AWS objectives) and the starters are fill-in templates (Tab jumps to the next `[bracket]`). Share **`/?general`** with colleagues: it hides the course menu, so they only see the any-subject version.
+
+**A prompt Emile answers well without follow-up questions:**
+
+```
+Write a [deliverable] for [course or program] on [topic].
+Learners: [who they are and what they bring].
+Placement: [week, what came just before, what comes next].
+Objective: by the end, learners can [action verb + task].
+Setting: [a workplace or scenario to anchor it, or "suggest one"].
+Length: [short / one page / 4 sample items].
+```
+
 | Command | What it does |
 |---|---|
 | `./setup.sh` | Clone or update Emile, install, start `emile-local.service`, warm the local model |
