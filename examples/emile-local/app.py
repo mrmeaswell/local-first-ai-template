@@ -173,7 +173,7 @@ async def run_claude(s, tools_, system, history, message, st):
     async def call(extra=None):
         async with httpx.AsyncClient(timeout=CLAUDE_TIMEOUT) as c:
             r = await c.post(f"{ANTHROPIC}/v1/messages", headers=_claude_headers(), json={
-                "model": CLAUDE_MODEL, "max_tokens": 3000, "system": system, "tools": tools,
+                "model": CLAUDE_MODEL, "max_tokens": 6000, "system": system, "tools": tools,
                 "messages": msgs, **(extra or {})})
         if r.status_code != 200:
             msg = (r.json().get("error", {}).get("message", "") if "json" in r.headers.get("content-type", "") else "") or r.text[:120]
@@ -268,7 +268,9 @@ async def chat_events(body: ChatIn):
     try:
         async with stdio_client(params, errlog=open(os.devnull, "w")) as (r, w), ClientSession(r, w) as s:
             await s.initialize()
-            tools_ = (await s.list_tools()).tools
+            # The model gets Emile's library (course, scenario, spec, anti-patterns), not the validators:
+            # the code runs those on every answer, so the musician never tunes its own instrument.
+            tools_ = [t for t in (await s.list_tools()).tools if t.name.startswith("emile_get_")]
             system = system_prompt(body.course)
             yield line({"type": "status", "text": "Thinking…"})
             if API_KEY and not body.local_only:
@@ -290,6 +292,16 @@ async def chat_events(body: ChatIn):
             if not st.revise:
                 yield line({"type": "error", "text": "Emile couldn't finish within the tool-call limit. Try a narrower request."})
                 return
+
+            if not st.answer.strip():  # e.g. the model stopped mid tool call; ask once for the text itself
+                yield line({"type": "status", "text": "Asking Emile for the written answer…"})
+                try:
+                    st.answer = await st.revise("Please give your full answer now as Markdown text, with no tool calls.")
+                except Exception as e:
+                    print(f"[emile] empty-answer retry failed: {type(e).__name__}: {e}", file=sys.stderr)
+                if not st.answer.strip():
+                    yield line({"type": "error", "text": "Emile didn't produce an answer that time. Try again, or narrow the request."})
+                    return
 
             # Outbound gate: Emile's validators on the draft; one revision round if anything fails.
             yield line({"type": "status", "text": "Checking against Emile's rules…"})

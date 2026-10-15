@@ -7,7 +7,8 @@ Emile's public repo ([mrmeaswell/emile-public](https://github.com/mrmeaswell/emi
 ```
 Browser ──► app.py ──► at the door:   gate.student_data()  student names, IDs, emails, grades → stopped, nothing sent
                    ──► the musician:  Claude (API) ──── on any failure ───► on-prem model (Ollama)
-                   │                     ⇄ Emile's MCP server (stdio): course context, MSCB, quiz spec, validators
+                   │                     ⇄ Emile's MCP server (stdio): course context, MSCB, quiz spec, anti-patterns
+                   │                       (the model gets the library only; the validators run in code, below)
                    ──► on the way out: gate.check()  = Emile's own validators.py + 2 rules from its prompt
                    │                     → one revision round if anything fails
                    ──► the instructor sees the deliverable and every check
