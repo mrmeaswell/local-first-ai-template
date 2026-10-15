@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emile, local</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%231f5f5b%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22%23f5f2ea%22%3EE%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#f5f2ea; --card:#fffdf8; --ink:#1d1b17; --ink-2:#55504a; --ink-3:#8a847b; --rule:#e2ddd1;
+  --accent:#1f5f5b; --accent-soft:#e3efec; --ok:#2f6b3a; --ok-soft:#e5f0e4; --bad:#a2361f; --bad-soft:#f6e3dd;
+  --info:#2f5687; --info-soft:#e3eaf4; --term:#f3e4b5;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#171614; --card:#201f1c; --ink:#ece7dc; --ink-2:#b7b0a4; --ink-3:#7f796f; --rule:#34312c;
+  --accent:#7cc4bb; --accent-soft:#1f3532; --ok:#8cc58f; --ok-soft:#1f3122; --bad:#ec8a72; --bad-soft:#3a221c;
+  --info:#93b6e6; --info-soft:#1e2a3a; --term:#4a3f1c;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);display:flex;flex-direction:column}
+button,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--rule)}
+.bar{max-width:880px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mark{font:600 26px/1 var(--serif);letter-spacing:.01em}
+.mark small{font:600 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);
+  border:1px solid var(--accent);border-radius:999px;padding:3px 7px;margin-left:8px;vertical-align:5px}
+.status{display:flex;align-items:center;gap:6px;color:var(--ink-2);font-size:13px;margin-right:auto}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}.dot.ok{background:var(--ok)}.dot.warn{background:#c58a12}.dot.bad{background:var(--bad)}
+.ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select{height:36px;width:250px;max-width:100%;min-width:0;text-overflow:ellipsis;border:1px solid var(--rule);background:var(--card);border-radius:10px;padding:0 10px}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2);cursor:pointer;user-select:none;
+  height:36px;padding:0 10px;border:1px solid var(--rule);border-radius:10px;background:var(--card)}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+main{flex:1;width:100%;max-width:880px;margin:0 auto;padding:24px 16px 8px}
+.intro h1{font:500 34px/1.15 var(--serif);margin:24px 0 8px}
+.intro p{color:var(--ink-2);margin:0 0 20px;max-width:62ch}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 24px}
+.how div{border-top:2px solid var(--accent);padding-top:8px;font-size:14px;color:var(--ink-2)}
+.how b{display:block;color:var(--ink);font:600 15px/1.3 var(--serif)}
+.starters{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.starter{text-align:left;background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:14px 16px;cursor:pointer}
+.starter:hover{border-color:var(--accent)}
+.starter b{display:block;font:600 16px/1.3 var(--serif);margin-bottom:4px}
+.starter span{color:var(--ink-2);font-size:13px}
+.starter.warnish b::after{content:" · data boundary";font:500 11px var(--sans);color:var(--bad);letter-spacing:.04em}
+.log{display:flex;flex-direction:column;gap:20px}
+.you{align-self:flex-end;max-width:85%;background:var(--accent-soft);border-radius:16px 16px 4px 16px;padding:10px 14px;white-space:pre-wrap;word-wrap:break-word}
+.you .tag{display:block;font-size:11px;color:var(--ink-3);margin-top:4px}
+.em{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:16px 20px}
+.em .who{font:600 13px var(--serif);color:var(--accent);margin-bottom:6px}
+.steps{list-style:none;margin:0 0 10px;padding:0;font:12px/1.7 var(--mono);color:var(--info)}
+.steps li::before{content:"→ ";color:var(--ink-3)}
+.wait{color:var(--ink-3);font-size:14px}
+.md{overflow-wrap:anywhere}
+.md h1,.md h2,.md h3{font-family:var(--serif);font-weight:600;line-height:1.25;margin:18px 0 6px}
+.md h1{font-size:24px}.md h2{font-size:20px}.md h3{font-size:17px}
+.md > :first-child{margin-top:0}
+.md p{margin:8px 0}.md ul,.md ol{margin:8px 0;padding-left:22px}.md li{margin:3px 0}
+.md strong.term{background:linear-gradient(transparent 58%,var(--term) 58%);font-weight:650}
+.md code{font:13px var(--mono);background:var(--paper);padding:1px 5px;border-radius:5px}
+.md pre{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:12px;overflow-x:auto}
+.md pre code{background:none;padding:0}
+.md blockquote{margin:10px 0;padding:2px 14px;border-left:3px solid var(--accent);color:var(--ink-2)}
+.md table{border-collapse:collapse;width:100%;font-size:14px;margin:10px 0;display:block;overflow-x:auto}
+.md th,.md td{border:1px solid var(--rule);padding:6px 8px;text-align:left;vertical-align:top}
+.md th{background:var(--paper)}
+.quiz{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.q{border:1px solid var(--rule);border-radius:12px;padding:12px 14px;background:var(--paper)}
+.q .meta{font:11px/1.4 var(--mono);color:var(--ink-3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+.q .stem{font-weight:550}
+.q ol{list-style:upper-alpha;margin:6px 0 0;padding-left:24px}
+.q li.right{color:var(--ok);font-weight:600}.q li.right::after{content:"  ✓"}
+.q .acc{font-size:14px;color:var(--ok);margin-top:4px}
+details.raw summary{cursor:pointer;color:var(--ink-3);font-size:13px}
+.checks{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding-top:12px;border-top:1px dashed var(--rule)}
+.ck{font-size:12px;line-height:1;padding:6px 9px;border-radius:999px;background:var(--ok-soft);color:var(--ok);cursor:default}
+.ck.no{background:var(--bad-soft);color:var(--bad)}.ck.rev{background:var(--info-soft);color:var(--info)}
+.why{font-size:13px;color:var(--bad);margin-top:6px}
+.foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--ink-3)}
+.foot .sp{margin-right:auto}
+.foot button{border:1px solid var(--rule);background:transparent;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;color:var(--ink-2)}
+.foot button:hover{border-color:var(--accent);color:var(--accent)}
+.blocked{border:1px solid var(--bad);background:var(--bad-soft);border-radius:16px;padding:14px 18px}
+.blocked b{font-family:var(--serif);color:var(--bad);display:block;margin-bottom:4px;font-size:17px}
+.err{color:var(--bad)}
+footer{position:sticky;bottom:0;background:linear-gradient(transparent,var(--paper) 22%);padding:18px 0 0}
+.composer{max-width:880px;margin:0 auto;padding:0 16px 14px}
+form{display:flex;gap:8px;align-items:flex-end;background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:8px}
+form:focus-within{border-color:var(--accent)}
+textarea{flex:1;border:0;background:transparent;resize:none;min-height:44px;max-height:220px;padding:10px;outline:none;line-height:1.45}
+.send{height:44px;min-width:44px;padding:0 16px;border:0;border-radius:12px;background:var(--accent);color:var(--card);font-weight:600;cursor:pointer}
+.send:disabled{opacity:.4;cursor:default}
+.note{font-size:12px;color:var(--ink-3);text-align:center;margin-top:8px}
+@media (max-width:640px){.ctl{width:100%;flex-wrap:nowrap}.ctl select{flex:1;width:auto}.status{margin-right:0}.how,.starters{grid-template-columns:1fr}.intro h1{font-size:28px}.em{padding:14px}.mark{font-size:22px}}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="mark">Emile<small>local</small></div>
+  <div class="status" id="status"><span class="dot"></span><span>Checking…</span></div>
+  <div class="ctl">
+    <select id="course" aria-label="Course"><option value="">No course</option></select>
+    <label class="toggle" title="Send this conversation only to the model on the shop's own server"><input type="checkbox" id="local"> On-prem only</label>
+  </div>
+</div></header>
+
+<main>
+  <section class="intro" id="intro">
+    <h1>A curriculum collaborator that pushes back.</h1>
+    <p>Emile co-designs modules, quizzes, labs and instructor guides with you, using Pocket Pedagogy. Judgment lives in the prompt; the rules live in code, and every draft is checked before you see it.</p>
+    <div class="how">
+      <div><b>At the door</b>Student names, IDs, emails and grades are stopped before any model sees them.</div>
+      <div><b>In the draft</b>Emile reads your course context, the MSCB scenario and the quiz spec.</div>
+      <div><b>On the way out</b>Emile's own validators check the draft. Anything that fails gets one revision.</div>
+    </div>
+    <div class="starters" id="starters"></div>
+  </section>
+  <section class="log" id="log" aria-live="polite"></section>
+</main>
+
+<footer><div class="composer">
+  <form id="form">
+    <textarea id="in" rows="1" placeholder="Ask Emile or paste a draft…" aria-label="Message"></textarea>
+    <button class="send" id="send" type="submit" aria-label="Send">Send</button>
+  </form>
+  <div class="note">Instructor-facing only. Emile drafts; you publish.</div>
+</div></footer>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const h = (tag, props = {}, kids = []) => {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === "text") e.textContent = v; else if (k === "html") e.innerHTML = v;
+      else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v != null) e.setAttribute(k, v);
+    }
+    for (const c of [].concat(kids)) if (c) e.append(c);
+    return e;
+  };
+
+  const STARTERS = [
+    { t: "Write a module intro", c: "CNT 290", d: "Proxmox storage for career changers",
+      q: "Write a module intro for CNT 290 on choosing Proxmox storage (LVM-thin vs ZFS vs directory). Learners are adult career changers, week 3, right after virtual networking. Objective: choose a storage type for a given workload and justify it." },
+    { t: "Draft sample quiz items", c: "CNT 160", d: "Four items on malware removal, objective-mapped",
+      q: "Draft 4 sample quiz items for CNT 160 on the malware removal process: one multiple choice, one multiple answer, one true/false, one fill-in-the-blank. Map each to a 220-1202 objective and set a level for each. Use the MSCB scenario." },
+    { t: "Review my draft", c: "", d: "Paste a passage; Emile pushes back",
+      q: "Review this lab intro and push back where it drifts:\n\n\"Simply open the BIOS and disable Secure Boot. This is basic stuff, so obviously everyone should finish in 10 minutes. Then install the hypervisor.\"" },
+    { t: "Help with a struggling student", c: "", d: "Watch what happens at the door", warn: true,
+      q: "Jordan Lee (jlee42@student.rtc.edu, ID 201234567) got 58% on the CNT 160 midterm. Help me write feedback for Jordan." },
+  ];
+
+  let history = [], busy = false, health = {};
+  const log = $("#log"), input = $("#in"), send = $("#send"), courseSel = $("#course"), localBox = $("#local");
+
+  // ---------- Markdown (escape first, then a small safe subset)
+  const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const inline = s => esc(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, '<strong class="term">$1</strong>')
+    .replace(/(^|[^*\w])\*([^*\n]+)\*(?=[^*\w]|$)/g, "$1<em>$2</em>");
+
+  function quizView(obj) {
+    const wrap = h("div", { class: "quiz" });
+    obj.questions.forEach((q, i) => {
+      const card = h("div", { class: "q" }, [
+        h("div", { class: "meta", text: `Q${i + 1} · ${(q.type || "?").replace("_", " ")} · ${q.level || "?"} · ${q.objective || "no objective"}` }),
+        h("div", { class: "stem", text: q.stem || "" })]);
+      const ans = Array.isArray(q.answer) ? q.answer : [];
+      if (q.type === "fill_blank") card.append(h("div", { class: "acc", text: "Accepts: " + ans.join(" · ") }));
+      else if (q.type !== "manual") {
+        const opts = q.options || (q.type === "true_false" ? ["True", "False"] : []);
+        card.append(h("ol", {}, opts.map((o, j) => h("li", { class: ans.includes(j) ? "right" : null, text: o }))));
+      }
+      wrap.append(card);
+    });
+    return wrap;
+  }
+
+  function renderMD(src) {
+    const root = h("div", { class: "md" });
+    const lines = src.replace(/\r/g, "").split("\n");
+    let i = 0, para = [];
+    const flush = () => { if (para.length) { root.append(h("p", { html: inline(para.join(" ")) })); para = []; } };
+    while (i < lines.length) {
+      const l = lines[i];
+      const fence = l.match(/^```\s*(\w*)/);
+      if (fence) {
+        flush(); const buf = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        const code = buf.join("\n"); let obj = null;
+        try { obj = JSON.parse(code); } catch {}
+        if (obj && Array.isArray(obj.questions)) {
+          root.append(quizView(obj));
+          root.append(h("details", { class: "raw" }, [h("summary", { text: "Quiz JSON (for scripts/export_quiz.py)" }), h("pre", {}, h("code", { text: code }))]));
+        } else root.append(h("pre", {}, h("code", { text: code })));
+        continue;
+      }
+      let m;
+      if ((m = l.match(/^(#{1,4})\s+(.*)/))) { flush(); root.append(h("h" + Math.min(m[1].length + 1, 3), { html: inline(m[2]) })); i++; continue; }
+      if (/^\s*>/.test(l)) { flush(); const b = []; while (i < lines.length && /^\s*>/.test(lines[i])) b.push(lines[i++].replace(/^\s*>\s?/, "")); root.append(h("blockquote", { html: inline(b.join(" ")) })); continue; }
+      if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+        flush(); const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+        const t = h("table"); t.append(h("thead", {}, h("tr", {}, cells(l).map(c => h("th", { html: inline(c) })))));
+        i += 2; const tb = h("tbody");
+        while (i < lines.length && /^\s*\|/.test(lines[i])) tb.append(h("tr", {}, cells(lines[i++]).map(c => h("td", { html: inline(c) }))));
+        t.append(tb); root.append(t); continue;
+      }
+      if ((m = l.match(/^\s*([-*]|\d+[.)])\s+(.*)/))) {
+        flush(); const ordered = /\d/.test(m[1]); const list = h(ordered ? "ol" : "ul");
+        while (i < lines.length && (m = lines[i].match(/^\s*([-*]|\d+[.)])\s+(.*)/))) {
+          let item = m[2]; i++;
+          while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*([-*]|\d+[.)])\s/.test(lines[i])) item += " " + lines[i++].trim();
+          list.append(h("li", { html: inline(item) }));
+        }
+        root.append(list); continue;
+      }
+      if (/^\s*(---|\*\*\*)\s*$/.test(l)) { flush(); root.append(h("hr")); i++; continue; }
+      if (!l.trim()) { flush(); i++; continue; }
+      para.push(l.trim()); i++;
+    }
+    flush();
+    return root;
+  }
+
+  // ---------- header state
+  async function loadHealth() {
+    try { health = await (await fetch("/api/health")).json(); } catch { health = {}; }
+    const claude = health.claude === "ok", local = health.ollama === "ok";
+    const st = $("#status"); let cls = "bad", txt = "Emile offline";
+    if (health.emile && health.emile !== "ok") txt = "Emile's files not found";
+    else if (localBox.checked) { cls = local ? "ok" : "bad"; txt = local ? `On-prem only · ${health.model}` : `On-prem model offline (${health.ollama})`; }
+    else if (claude) { cls = local ? "ok" : "warn"; txt = `Claude · on-prem backup ${local ? "ready" : "offline"}`; }
+    else if (local) { cls = "warn"; txt = `${health.model} · on-prem${health.claude_model ? ` (Claude: ${health.claude})` : ""}`; }
+    st.replaceChildren(h("span", { class: "dot " + cls }), h("span", { text: txt }));
+  }
+  localBox.addEventListener("change", loadHealth);
+
+  async function loadCourses() {
+    try {
+      for (const c of await (await fetch("/api/courses")).json())
+        courseSel.append(h("option", { value: c.code, text: `${c.code}${c.title ? " · " + c.title : ""}` }));
+    } catch {}
+  }
+
+  $("#starters").append(...STARTERS.map(s => h("button", { class: "starter" + (s.warn ? " warnish" : ""), type: "button",
+    onclick: () => { if (s.c) courseSel.value = s.c; ask(s.q); } }, [h("b", { text: s.t }), h("span", { text: s.d })])));
+
+  // ---------- asking
+  function download(name, text) {
+    const a = h("a", { href: URL.createObjectURL(new Blob([text], { type: "text/markdown" })), download: name });
+    document.body.append(a); a.click(); a.remove();
+  }
+
+  async function ask(q) {
+    q = (q || "").trim();
+    if (!q || busy) return;
+    busy = true; send.disabled = true; input.value = ""; grow();
+    $("#intro").hidden = true;
+    const course = courseSel.value || null, localOnly = localBox.checked;
+    log.append(h("div", { class: "you" }, [document.createTextNode(q),
+      h("span", { class: "tag", text: [course, localOnly ? "on-prem only" : null].filter(Boolean).join(" · ") || "no course" })]));
+    const steps = h("ul", { class: "steps" }), wait = h("div", { class: "wait", text: "Thinking…" });
+    const card = h("article", { class: "em" }, [h("div", { class: "who", text: "Emile" }), steps, wait]);
+    log.append(card); card.scrollIntoView({ block: "end", behavior: "smooth" });
+    const t0 = Date.now(); let label = "Thinking…";
+    const tick = setInterval(() => { wait.textContent = `${label} ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
+    let answer = "", checks = null;
+    try {
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: q, course, local_only: localOnly, history }) });
+      if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
+      const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true }); let n;
+        while ((n = buf.indexOf("\n")) >= 0) {
+          const ln = buf.slice(0, n).trim(); buf = buf.slice(n + 1); if (!ln) continue;
+          const ev = JSON.parse(ln);
+          if (ev.type === "status") label = ev.text;
+          else if (ev.type === "step") steps.append(h("li", { text: ev.label }));
+          else if (ev.type === "checks") checks = ev;
+          else if (ev.type === "blocked") {
+            card.replaceWith(h("div", { class: "blocked" }, [h("b", { text: "Stopped at the door" }), h("div", { text: ev.text })]));
+          } else if (ev.type === "error") wait.replaceWith(h("div", { class: "err", text: ev.text }));
+          else if (ev.type === "answer") {
+            answer = ev.text;
+            wait.replaceWith(renderMD(answer));
+            if (checks) {
+              const row = h("div", { class: "checks" }, [
+                ...checks.checks.map(c => h("span", { class: "ck" + (c.pass ? "" : " no"), title: c.detail || "", text: (c.pass ? "✓ " : "✗ ") + c.name })),
+                checks.revised ? h("span", { class: "ck rev", title: "The first draft failed a check and was revised once before you saw it.", text: "↻ revised once" }) : null]);
+              card.append(row);
+              const bad = checks.checks.filter(c => !c.pass);
+              if (bad.length) card.append(h("div", { class: "why", text: bad.map(c => `${c.name}: ${c.detail}`).join(" · ") }));
+            }
+            const who = ev.local ? `${ev.model} · on-prem${ev.fallback ? " backup" : ""}` : "Claude";
+            const file = "emile-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".md";
+            const copy = h("button", { type: "button", text: "Copy", onclick: async () => { try { await navigator.clipboard.writeText(answer); copy.textContent = "Copied"; } catch { copy.textContent = "Copy failed"; } } });
+            card.append(h("div", { class: "foot" }, [h("span", { class: "sp", text: `${who} · ${ev.seconds}s · ${steps.childElementCount} lookup${steps.childElementCount === 1 ? "" : "s"}` }),
+              copy, h("button", { type: "button", text: "Download .md", onclick: () => download(file, answer) })]));
+          }
+        }
+      }
+      if (!steps.childElementCount) steps.remove();
+      if (answer) history.push({ role: "user", content: q }, { role: "assistant", content: answer }), history = history.slice(-16);
+    } catch (e) {
+      wait.replaceWith(h("div", { class: "err", text: "Couldn't reach Emile: " + e.message }));
+    } finally {
+      clearInterval(tick); busy = false; send.disabled = false; input.focus();
+    }
+  }
+
+  const grow = () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 220) + "px"; };
+  input.addEventListener("input", grow);
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
+  $("#form").addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
+  loadCourses(); loadHealth(); setInterval(loadHealth, 30000);
+})();
+</script>
+</body>
+</html>
