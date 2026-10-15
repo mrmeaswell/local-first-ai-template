@@ -32,7 +32,7 @@ ZONE_TOKEN=<token> ZONE_MCP_WRITES=1 python assistant.py   # can request plans; 
 | golden | Reads return real data | nothing extra |
 | negative | No/invalid/forged identity, role gates, QC gate, bad JSON | nothing extra |
 | plans | Confirm tokens: same user only, 5-minute expiry, single use | nothing extra |
-| mcp | `request_plan` never returns the token; no confirm tool; token file is 0600 | `mcp` package |
+| mcp | Write tools (`request_add_note`, `request_advance_stage`) never return the token and have strict typed schemas; no confirm tool; token file is 0600 | `mcp` package |
 | gate | The human's y/N decides; the model's text never contains the token | nothing extra |
 | helper | Undeclared actions, raw commands, and shell metacharacters are rejected | nothing extra |
 | tools | The model picks the right tool for 6 prompts | **Ollama** with `MODEL` (default `qwen2.5:7b`); otherwise `SKIPPED` |
@@ -51,7 +51,7 @@ The UI never calls MCP, and the AI never bypasses the API (Section 3), so busine
 
 ## Security model (starter)
 - **Identity:** every request needs `Authorization: Bearer <token>`. Tokens are created with `--add-user`, shown once, and stored only as SHA-256 hashes. There are no role headers. Non-human clients use the `service` role and must name a human `--owner`.
-- **AI writes:** the model can only call `request_plan`. The API issues a one-time confirm token (5 minutes, same user, single use). `zone-mcp` strips it and hands it to `assistant.py` through `.pending/` (mode 0600). The human answers `Approve? [y/N]`, and only then does the orchestrator confirm. There is no confirm tool.
+- **AI writes:** the model can only call `request_add_note` or `request_advance_stage` (one narrow, typed tool per action). The API issues a one-time confirm token (5 minutes, same user, single use). `zone-mcp` strips it and hands it to `assistant.py` through `.pending/` (mode 0600). The human answers `Approve? [y/N]`, and only then does the orchestrator confirm. There is no confirm tool.
 - **Host actions:** typed kinds in `helper/kinds/` with fixed argument lists and `shell=False`. Anything not declared in `host-actions.yaml` doesn't exist.
 - **Limits:** the side channel protects against the model, not against someone with a shell on the box as the same Unix user. For production, run the orchestrator and helper as separate users.
 

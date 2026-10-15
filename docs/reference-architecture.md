@@ -259,7 +259,7 @@ blend-zone-template/
 
 **Standard roles:** each zone lists its own, plus the standard **`service`** role for non-human clients (kiosks, Shortcuts, scripts). A service user must have a human `owner`, and audit lines record both.
 
-**Write path for the AI:** the model calls `request_plan` → the API stores the plan and issues a one-time confirm token (SHA-256 stored, 5-minute expiry, same actor only) → `zone-mcp` strips the token and hands it to the orchestrator through a side channel → the human approves at the prompt → the orchestrator confirms. There is no confirm tool in MCP.
+**Write path for the AI:** the model calls a narrow, typed write tool (`request_add_note(record_id, text)`, `request_advance_stage(record_id)`; one tool per action, never a generic `action` + free-form `params`) → the API stores the plan and issues a one-time confirm token (SHA-256 stored, 5-minute expiry, same actor only) → `zone-mcp` strips the token and hands it to the orchestrator through a side channel → the human approves at the prompt → the orchestrator confirms. There is no confirm tool in MCP.
 
 **Creating a new zone:** copy the template → edit `zone.yaml` and `schema/` → write `zone-mcp` tools → seed the retrieval corpus → write the golden set → deploy a profile.
 
