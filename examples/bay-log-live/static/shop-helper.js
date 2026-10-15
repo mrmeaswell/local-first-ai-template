@@ -1,4 +1,4 @@
-/* Shop Helper panel for Bay Log.
+/* Shop Coach panel for Bay Log.
    Injected by helper.py's proxy; Bay Log's own code is untouched.
    Reads the open ticket from Bay Log's detail panel (.d-id), streams answers from /helper/chat. */
 (() => {
@@ -33,6 +33,10 @@
   .sh-kb{display:inline-block;padding:0 6px;margin:0 1px;border-radius:6px;background:rgba(255,172,0,.15);color:var(--yellow,#ffac00);font:600 12px/1.6 ui-monospace,Menlo,monospace}
   .sh-meta{margin-top:6px;color:var(--txt-3,#616161);font-size:11px}
   .sh-err{color:var(--ember,#e84826)}
+  .sh-checks{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+  .sh-ck{padding:1px 7px;border-radius:9px;font:11px/1.6 system-ui,sans-serif;background:rgba(98,155,92,.16);color:var(--sage,#8cc286)}
+  .sh-ck.no{background:rgba(232,72,38,.16);color:var(--ember,#e84826)}
+  .sh-ck.rev{background:rgba(119,175,216,.16);color:var(--sky,#77afd8)}
   .sh-chips[hidden]{display:none}.sh-chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 10px}
   .sh-chip{min-height:36px;padding:6px 12px;border-radius:18px;border:1px solid var(--ink-5,#494949);background:transparent;color:var(--txt-1,#cbcbcb);font:13px system-ui,sans-serif;cursor:pointer}
   .sh-chip:hover{border-color:var(--yellow,#ffac00);color:var(--txt-0,#fff)}
@@ -58,22 +62,22 @@
   };
   const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>';
 
-  const fab = h("button", { class: "sh-fab", type: "button", "aria-label": "Open Shop Helper" });
-  fab.innerHTML = icon + "<span>Shop Helper</span>";
+  const fab = h("button", { class: "sh-fab", type: "button", "aria-label": "Open Shop Coach" });
+  fab.innerHTML = icon + "<span>Shop Coach</span>";
   const sub = h("div", { class: "sh-sub" }, [h("span", { class: "sh-dot" }), document.createTextNode("Checking…")]);
   const ctx = h("div", { class: "sh-ctx" });
   const log = h("div", { class: "sh-log", "aria-live": "polite" });
   const chips = h("div", { class: "sh-chips" });
   const input = h("textarea", { class: "sh-in", rows: "1", placeholder: "Ask about this repair order…", "aria-label": "Message" });
   const send = h("button", { class: "sh-send", type: "submit", "aria-label": "Send", text: "↑" });
-  const panel = h("section", { class: "sh-panel", hidden: "", role: "dialog", "aria-label": "Shop Helper" }, [
+  const panel = h("section", { class: "sh-panel", hidden: "", role: "dialog", "aria-label": "Shop Coach" }, [
     h("div", { class: "sh-head" }, [
-      h("div", {}, [h("div", { class: "sh-title", text: "Shop Helper" }), sub]),
+      h("div", {}, [h("div", { class: "sh-title", text: "Shop Coach" }), sub]),
       h("button", { class: "sh-x", type: "button", "aria-label": "Close", text: "×", onclick: () => toggle(false) })
     ]),
     ctx, log, chips,
     h("form", { class: "sh-form", onsubmit: e => { e.preventDefault(); ask(input.value); } }, [input, send]),
-    h("div", { class: "sh-foot", text: "Read-only: it can look things up but can't change tickets. Runs on the shop's own server." })
+    h("div", { class: "sh-foot", text: "Read-only: it looks things up but can't change tickets. Every answer is checked against the records before you see it." })
   ]);
   document.body.append(fab, panel);
 
@@ -108,10 +112,13 @@
   async function health() {
     try {
       const r = await (await fetch("/helper/health")).json();
-      const ok = r.baylog === "ok" && r.ollama === "ok";
-      const dot = h("span", { class: "sh-dot " + (ok ? (r.model_loaded ? "ok" : "warn") : "bad") });
-      const txt = ok ? `${r.model} · on-prem · ${r.model_loaded ? "ready" : "warming up"}`
-                     : (r.ollama !== "ok" ? `Model offline (${r.ollama})` : "Bay Log not reachable");
+      const claude = r.provider === "claude" && r.claude === "ok", local = r.ollama === "ok";
+      const ok = r.baylog === "ok" && (claude || local);
+      const dot = h("span", { class: "sh-dot " + (!ok ? "bad" : (claude && local) || (!r.claude_model && r.model_loaded) ? "ok" : "warn") });
+      const txt = r.baylog !== "ok" ? "Bay Log not reachable"
+        : claude ? `Claude · on-prem backup ${local ? "ready" : "offline"}`
+        : local ? `${r.model} · on-prem${r.provider === "claude" ? ` (Claude: ${r.claude})` : ""} · ${r.model_loaded ? "ready" : "warming up"}`
+        : `No model available (${r.claude_model ? "Claude: " + r.claude + ", " : ""}local: ${r.ollama})`;
       sub.replaceChildren(dot, document.createTextNode(txt));
     } catch { sub.replaceChildren(h("span", { class: "sh-dot bad" }), document.createTextNode("Helper offline")); }
   }
@@ -134,7 +141,7 @@
     log.append(bot); log.scrollTop = log.scrollHeight;
     const t0 = Date.now(); let statusText = "Thinking…";
     const timer = setInterval(() => { status.textContent = `${statusText} ${Math.round((Date.now() - t0) / 1000)}s`; }, 1000);
-    let answer = "";
+    let answer = "", checks = null;
     try {
       const res = await fetch("/helper/chat", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: q, ticket_id: openTicket(), history }) });
@@ -151,10 +158,15 @@
           const ev = JSON.parse(line);
           if (ev.type === "step") steps.append(h("li", { text: ev.label }));
           else if (ev.type === "status") statusText = ev.text;
+          else if (ev.type === "checks") checks = ev;
           else if (ev.type === "answer") {
             answer = ev.text || "(no answer)";
             status.replaceWith(h("div", {}, [withKB(answer)]));
-            bot.append(h("div", { class: "sh-meta", text: `${ev.model} · ${ev.seconds}s · ${steps.childElementCount} lookup${steps.childElementCount === 1 ? "" : "s"}` }));
+            if (checks) bot.append(h("div", { class: "sh-checks" }, [
+              ...checks.checks.map(c => h("span", { class: "sh-ck" + (c.pass ? "" : " no"), title: c.detail || "", text: (c.pass ? "✓ " : "✗ ") + c.name })),
+              checks.revised ? h("span", { class: "sh-ck rev", title: "A check failed on the first draft; the model revised it once.", text: "↻ revised once" }) : null]));
+            const who = /^claude/i.test(ev.model) ? "Claude" : `${ev.model} · on-prem${ev.fallback ? " backup" : ""}`;
+            bot.append(h("div", { class: "sh-meta", text: `${who} · ${ev.seconds}s · ${steps.childElementCount} lookup${steps.childElementCount === 1 ? "" : "s"}` }));
           } else if (ev.type === "error") status.replaceWith(h("div", { class: "sh-err", text: ev.text }));
           log.scrollTop = log.scrollHeight;
         }

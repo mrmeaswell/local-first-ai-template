@@ -1,11 +1,13 @@
-"""Shop Helper checks. Run against a live Bay Log (seed data) and, if available, the local model.
+"""Shop Coach checks. Run against a live Bay Log (seed data) and, if available, the local model.
 
   python -u evals/run_evals.py            # uses BAYLOG_API, OLLAMA_URL, MODEL, HELPER_URL from env
 
 Suites:
+  rules   checks.py catches what it should and passes what it should (no model needed)
   tools   baylog-mcp is read-only and returns the right facts (no model needed)
-  select  the model picks the right tool + arguments (needs Ollama)
-  answer  one end-to-end question through the helper: answer cites P0303 and KB-1 (needs helper + Ollama)
+  select  the local backup model picks the right tool + arguments (needs Ollama)
+  answer  end to end through the coach, with whichever model it is using (Claude or local):
+          every answer must pass every check in checks.py
 """
 import asyncio, json, os, re, sys
 from pathlib import Path
@@ -19,7 +21,9 @@ BAYLOG = os.environ.get("BAYLOG_API", "http://127.0.0.1:8080")
 OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 MODEL = os.environ.get("MODEL", "qwen2.5:7b")
 HELPER = os.environ.get("HELPER_URL", "http://127.0.0.1:8090")
-SYSTEM = (HERE / "prompts" / "shop-helper.md").read_text()
+SYSTEM = (HERE / "prompts" / "shop-coach.md").read_text()
+sys.path.insert(0, str(HERE))
+from checks import check_answer, failures  # noqa: E402
 results = []
 
 def report(suite, tid, status, desc):
@@ -49,6 +53,26 @@ async def tools_suite(s):
     report("tools", "k5", "PASS" if k["results"] and k["results"][0]["kb_id"] == "KB-1" else "FAIL", "search_kb 'P0303 misfire' -> KB-1")
     return [{"type": "function", "function": {"name": x.name, "description": x.description, "parameters": x.inputSchema}} for x in tools.values()]
 
+EV = ('{"ticket_id":"T-1001","stage":"Diagnosis","current_stage_notes":{"codes":"P0303"},'
+      '"linked_procedures":[{"kb_id":"KB-1","diagnostic_steps":"Swap coil 3 with coil 2. Spark plug gap 1.1 mm."}]}')
+RULES = [  # id, answer, expect failing check names (empty = all pass)
+    ("r1", "Your Civic shows P0303 in Diagnosis. Next, swap coil 3 with coil 2 to see if the misfire follows the coil (KB-1). "
+           "If the code moves to P0302, what does that tell you?", set()),
+    ("r2", "Swap coil 3 with coil 5 per KB-1, see T-1009. What changed?", {"grounded"}),
+    ("r3", "Set the plug gap to 0.9 mm (KB-1). What do you see?", {"grounded"}),
+    ("r4", "Simply swap the coils (KB-1). What happens?", {"shame-free"}),
+    ("r5", "Swap coil 3 with coil 2 (KB-1).", {"ends with one question"}),
+    ("r6", "Swap coil 3 with coil 2. What happens?", {"cites procedure"}),
+    ("r7", "I've advanced T-1001 to Approval (KB-1). What next?", {"read-only honest"}),
+    ("r8", ("Swap coil 3 with coil 2 (KB-1). " + "This matters because the coil is a likely cause. " * 20 + "What next?"), {"concise"}),
+    ("r9", "Plug gap is 1.1 mm per KB-1. Is yours?", set()),
+]
+
+def rules_suite():
+    for rid, ans, expect in RULES:
+        got = {c["name"] for c in failures(check_answer(ans, EV, "What should I check next? T-1001"))}
+        report("rules", rid, "PASS" if got == expect else "FAIL", f"expect fail {sorted(expect) or 'none'}, got {sorted(got) or 'none'}")
+
 CASES = [  # id, open ticket, prompt, acceptable (tool, check-args) pairs
     ("s1", "T-1001", "What should I check next?", [("get_ticket", lambda a: a.get("ticket_id", "").upper() == "T-1001")]),
     ("s2", None, "Find the work order for the Ford F-150.", [("search_tickets", lambda a: re.search(r"f-?150|ford", a.get("query", ""), re.I))]),
@@ -75,21 +99,34 @@ def select_suite(tools):
         report("select", cid, "PASS" if good else "FAIL", f"{prompt!r} [{ticket or 'no ticket'}] -> {c.get('name')}({args})")
     return ok
 
+QUESTIONS = [  # id, open ticket, question, extra test on (answer text, steps)
+    ("e1", "T-1001", "What should I check next?", lambda t, st: "P0303" in t and "KB-1" in t),
+    ("e2", None, "Find the work order for the F-150", lambda t, st: "T-1002" in t and any("Searched tickets" in x for x in st)),
+    ("e3", "T-1001", "Advance T-1001 to the next stage.", lambda t, st: re.search(r"can.?t|cannot|not able|read-only|instructor", t, re.I)),
+]
+
 def answer_suite():
     try:
-        r = httpx.post(f"{HELPER}/helper/chat", timeout=900, json={"message": "What should I check next?", "ticket_id": "T-1001"})
+        h = httpx.get(f"{HELPER}/helper/health", timeout=15).json()
     except Exception as e:
-        report("answer", "e1", "SKIPPED", f"helper unreachable at {HELPER} ({type(e).__name__})"); return
-    evs = [json.loads(l) for l in r.text.splitlines() if l.strip()]
-    ans = next((e for e in evs if e["type"] in ("answer", "error")), {})
-    text = ans.get("text", "")
-    good = ans.get("type") == "answer" and "P0303" in text and "KB-1" in text and "?" in text
-    report("answer", "e1", "PASS" if good else "FAIL",
-           f"T-1001 'What should I check next?' in {ans.get('seconds', '?')}s, steps={[e['label'] for e in evs if e['type'] == 'step']}")
-    print("        answer:", text.replace("\n", " "), flush=True)
+        report("answer", "e0", "SKIPPED", f"helper unreachable at {HELPER} ({type(e).__name__})"); return
+    print(f"        coach is using: {h.get('claude_model') if h.get('claude') == 'ok' else h.get('model') + ' (local)'}", flush=True)
+    for qid, ticket, q, extra in QUESTIONS:
+        r = httpx.post(f"{HELPER}/helper/chat", timeout=900, json={"message": q, "ticket_id": ticket})
+        evs = [json.loads(l) for l in r.text.splitlines() if l.strip()]
+        ans = next((e for e in evs if e["type"] in ("answer", "error")), {})
+        chk = next((e for e in evs if e["type"] == "checks"), {"checks": [], "revised": False})
+        text, steps = ans.get("text", ""), [e["label"] for e in evs if e["type"] == "step"]
+        failed = [c["name"] + (f" ({c['detail']})" if c["detail"] else "") for c in chk["checks"] if not c["pass"]]
+        good = ans.get("type") == "answer" and chk["checks"] and not failed and extra(text, steps)
+        report("answer", qid, "PASS" if good else "FAIL",
+               f"{q!r} [{ticket or 'no ticket'}] {ans.get('model', '?')}{' (backup)' if ans.get('fallback') else ''} "
+               f"{ans.get('seconds', '?')}s steps={steps}{' revised' if chk['revised'] else ''}{' FAILED: ' + '; '.join(failed) if failed else ''}")
+        print("        answer:", text.replace("\n", " "), flush=True)
 
+rules_suite()
 tools = asyncio.run(session_run(tools_suite))
-if select_suite(tools):
-    answer_suite()
+select_suite(tools)
+answer_suite()
 n = {s: results.count(s) for s in ("PASS", "FAIL", "SKIPPED")}
 print(f"\n{n['PASS']} passed, {n['FAIL']} failed, {n['SKIPPED']} skipped"); sys.exit(1 if n["FAIL"] else 0)

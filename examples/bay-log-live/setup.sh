@@ -5,8 +5,10 @@
 #   ./setup.sh reset    put Bay Log back to its sample data (run before you present)
 #   ./setup.sh status   health of Bay Log, the model, and the helper
 #   ./setup.sh stop     stop both services
+#   ./setup.sh key      store an Anthropic API key (typed hidden, root-only file) so Claude is the coaching voice;
+#                       the local model stays as automatic backup. ./setup.sh key --remove goes back to local only.
 #
-# Env overrides: MODEL (qwen2.5:7b), OLLAMA_URL (http://127.0.0.1:11434), PORT (8090),
+# Env overrides: CLAUDE_MODEL (claude-sonnet-5), MODEL (qwen2.5:7b), OLLAMA_URL (http://127.0.0.1:11434), PORT (8090),
 #                DEMO_DIR (/opt/baylog-demo), BAYLOG_REPO (https://github.com/mrmeaswell/blend-zones)
 set -euo pipefail
 
@@ -19,6 +21,8 @@ PORT="${PORT:-8090}"
 BAYLOG_DIR="$DEMO_DIR/blend-zones/examples/bay-log"
 VENV="$DEMO_DIR/venv"
 DB="$DEMO_DIR/data/baylog.db"
+SECRETS="$DEMO_DIR/secrets.env"
+CLAUDE_MODEL="${CLAUDE_MODEL:-claude-sonnet-5}"
 
 say() { printf '\n\033[1;33m==> %s\033[0m\n' "$*"; }
 need_root() { [ "$(id -u)" = 0 ] || { echo "Run as root (inside the demo container)."; exit 1; }; }
@@ -38,8 +42,18 @@ case "${1:-install}" in
     systemctl start baylog-demo
     for _ in $(seq 30); do curl -sf http://127.0.0.1:8080/api/health >/dev/null && break; sleep 1; done
     status; exit 0 ;;
+  key)
+    need_root; mkdir -p "$DEMO_DIR"
+    if [ "${2:-}" = "--remove" ]; then rm -f "$SECRETS"; echo "Key removed: local model only."
+    else
+      read -rsp "Paste the Anthropic API key (input hidden), then Enter: " K; echo
+      case "$K" in sk-ant-*) ;; *) echo "That doesn't look like an Anthropic key (sk-ant-...). Nothing saved."; exit 1 ;; esac
+      ( umask 077; printf 'ANTHROPIC_API_KEY=%s\n' "$K" > "$SECRETS" ); unset K
+      chmod 600 "$SECRETS"; echo "Saved to $SECRETS (root only)."
+    fi
+    systemctl restart shop-helper 2>/dev/null || true; sleep 2; status; exit 0 ;;
   install) ;;
-  *) echo "usage: $0 [install|reset|status|stop]"; exit 2 ;;
+  *) echo "usage: $0 [install|reset|status|stop|key [--remove]]"; exit 2 ;;
 esac
 
 need_root
@@ -74,7 +88,7 @@ WantedBy=multi-user.target
 EOF
 cat > /etc/systemd/system/shop-helper.service <<EOF
 [Unit]
-Description=Shop Helper (read-only AI helper for Bay Log)
+Description=Shop Coach (read-only AI coach for Bay Log)
 After=baylog-demo.service ollama.service
 Wants=baylog-demo.service
 [Service]
@@ -82,6 +96,8 @@ WorkingDirectory=$HERE
 Environment=BAYLOG_API=http://127.0.0.1:8080
 Environment=OLLAMA_URL=$OLLAMA_URL
 Environment=MODEL=$MODEL
+Environment=CLAUDE_MODEL=$CLAUDE_MODEL
+EnvironmentFile=-$SECRETS
 ExecStart=$VENV/bin/uvicorn helper:app --host 0.0.0.0 --port $PORT
 Restart=on-failure
 [Install]
@@ -100,5 +116,6 @@ curl -s -m 600 "$OLLAMA_URL/api/generate" -d "{\"model\":\"$MODEL\",\"prompt\":\
 
 status
 IP="$(hostname -I | awk '{print $1}')"
-say "Open http://$IP:$PORT  (Bay Log with the Shop Helper button, bottom right)"
+say "Open http://$IP:$PORT  (Bay Log with the Shop Coach button, bottom right)"
+[ -f "$SECRETS" ] || echo "Coaching voice: local model only. To use Claude with the local model as backup:  ./setup.sh key"
 echo "Before presenting:  ./setup.sh reset    Test run:  $VENV/bin/python -u evals/run_evals.py"
